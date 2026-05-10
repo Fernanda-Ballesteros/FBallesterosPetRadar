@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LostPet } from 'src/core/entities/lost-pet.entity';
 import { LostPetCDto } from 'src/core/models/lost-pet.model';
@@ -7,6 +7,8 @@ import { EmailOptions } from 'src/core/models/email-options.model';
 import { generateLostPetEmailTemplate } from './templates/lost-pet.template';
 import { Repository } from 'typeorm';
 import { envs } from 'src/config/envs';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class LostPetsService {
@@ -14,11 +16,11 @@ export class LostPetsService {
     constructor(
         @InjectRepository(LostPet)
         private readonly lostPetRepository: Repository<LostPet>,
-        private readonly emailService: EmailService
+        private readonly emailService: EmailService,
+        @Inject(CACHE_MANAGER) private cacheManager: Cache
     ) {}
 
     async createLostPet(lostPet: LostPetCDto): Promise<Boolean> {
-
         const newLostPet = this.lostPetRepository.create({
             name: lostPet.name,
             species: lostPet.species,
@@ -39,6 +41,7 @@ export class LostPetsService {
         });
 
         await this.lostPetRepository.save(newLostPet);
+        await this.cacheManager.del('lost_pets_active'); // invalida caché al crear
 
         const template = generateLostPetEmailTemplate(lostPet);
         const options: EmailOptions = {
@@ -47,7 +50,15 @@ export class LostPetsService {
             htmlBody: template
         };
 
-        const result = await this.emailService.sendEmail(options);
-        return result;
+        return this.emailService.sendEmail(options);
+    }
+
+    async getActiveLostPets(): Promise<LostPet[]> {
+        const cached = await this.cacheManager.get<LostPet[]>('lost_pets_active');
+        if (cached) return cached;
+
+        const pets = await this.lostPetRepository.find({ where: { is_active: true } });
+        await this.cacheManager.set('lost_pets_active', pets, 60000);
+        return pets;
     }
 }

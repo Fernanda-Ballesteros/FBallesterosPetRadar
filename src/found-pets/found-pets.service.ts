@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FoundPet } from 'src/core/entities/found-pet.entity';
 import { LostPet } from 'src/core/entities/lost-pet.entity';
@@ -8,6 +8,8 @@ import { EmailOptions } from 'src/core/models/email-options.model';
 import { Repository } from 'typeorm';
 import { generateFoundPetEmailTemplate } from './templates/found-pet.template';
 import { envs } from 'src/config/envs';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class FoundPetsService {
@@ -15,15 +17,13 @@ export class FoundPetsService {
     constructor(
         @InjectRepository(FoundPet)
         private readonly foundPetRepository: Repository<FoundPet>,
-
         @InjectRepository(LostPet)
         private readonly lostPetRepository: Repository<LostPet>,
-
-        private readonly emailService: EmailService
+        private readonly emailService: EmailService,
+        @Inject(CACHE_MANAGER) private cacheManager: Cache
     ) {}
 
     async createFoundPet(foundPet: FoundPetCDto): Promise<Boolean> {
-
         const newFoundPet = this.foundPetRepository.create({
             species: foundPet.species,
             breed: foundPet.breed,
@@ -43,6 +43,7 @@ export class FoundPetsService {
         });
 
         await this.foundPetRepository.save(newFoundPet);
+        await this.cacheManager.del('found_pets'); // invalida caché al crear
 
         const nearbyLostPets = await this.lostPetRepository.query(`
             SELECT *,
@@ -71,6 +72,8 @@ export class FoundPetsService {
                         coordinates: [parseFloat(lostPet.lon), parseFloat(lostPet.lat)]
                     }
                 };
+
+                
                 const template = generateFoundPetEmailTemplate(foundPet, lostPetWithCoords);
                 const options: EmailOptions = {
                     to: envs.MAILER_EMAIL,
@@ -82,5 +85,14 @@ export class FoundPetsService {
         }
 
         return true;
+    }
+
+    async getFoundPets(): Promise<FoundPet[]> {
+        const cached = await this.cacheManager.get<FoundPet[]>('found_pets');
+        if (cached) return cached;
+
+        const pets = await this.foundPetRepository.find();
+        await this.cacheManager.set('found_pets', pets, 60000);
+        return pets;
     }
 }

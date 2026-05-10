@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { LostPetsService } from './lost-pets.service';
 import type { LostPetCDto } from 'src/core/models/lost-pet.model';
 
@@ -9,7 +9,11 @@ export class LostPetsController {
 
     @Post()
     async createLostPet(@Body() lostPet: LostPetCDto) {
-        const result = this.lostPetsService.createLostPet(lostPet);
-        return result;
+        return this.lostPetsService.createLostPet(lostPet);
+    }
+
+    @Get()
+    async getActiveLostPets() {
+        return this.lostPetsService.getActiveLostPets();
     }
 }
