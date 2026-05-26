@@ -10,17 +10,15 @@ export const envs = {
 
   MAPBOX_TOKEN: env.get("MAPBOX_TOKEN").required().asString(),
 
-  DB_HOST: env.get("DB_HOST").required().asString(),
-  DB_NAME: env.get("DB_NAME").required().asString(),
+  DATABASE_URL: env.get("DATABASE_URL").asString(),
+  DB_HOST: env.get("DB_HOST").default("localhost").asString(),
+  DB_NAME: env.get("DB_NAME").default("pet-radar").asString(),
   DB_PORT: env.get("DB_PORT").default("5432").asPortNumber(),
-  DB_USER: env.get("DB_USER").required().asString(),
-  DB_PASSWORD: env.get("DB_PASSWORD").required().asString(),
+  DB_USER: env.get("DB_USER").default("postgres").asString(),
+  DB_PASSWORD: env.get("DB_PASSWORD").default("postgres").asString(),
 
   REDIS_HOST: env.get("REDIS_HOST").default("localhost").asString(),
   REDIS_PORT: env.get("REDIS_PORT").default("6379").asPortNumber(),
 
-  APPINSIGHTS_CONNECTION_STRING: env
-    .get("APPINSIGHTS_CONNECTION_STRING")
-    .default("")
-    .asString(),
+  APPINSIGHTS_CONNECTION_STRING: env.get("APPINSIGHTS_CONNECTION_STRING").default("").asString(),
 };
