@@ -19,8 +19,13 @@ if (envs.APPINSIGHTS_CONNECTION_STRING) {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
   app.setGlobalPrefix('api');
   app.enableCors();
-  await app.listen(envs.PORT);
+
+  await app.listen(process.env.PORT || 3000);
+
+  console.log(`Servidor corriendo`);
 }
+
 bootstrap();
